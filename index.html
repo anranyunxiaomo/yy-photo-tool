@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>YY小工具</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="YY小工具">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <link rel="stylesheet" href="app.css">
+    <!-- Cropper.js for image cropping -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>✨ YY小工具</h1>
+        </header>
+
+        <main class="card-glass">
+            
+            <!-- Install PWA Guide (Hidden by default) -->
+            <div id="installGuide" class="install-guide" style="display: none;">
+                <div class="install-guide-content">
+                    <span style="font-size: 20px;">📱</span>
+                    <div class="install-text">
+                        <strong>添加到手机桌面</strong>
+                        <span>想要更流畅体验？点击底部的分享按钮 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg> 选择「添加到主屏幕」哦～</span>
+                    </div>
+                    <button id="closeInstallGuide" class="close-btn">×</button>
+                </div>
+            </div>
+            <!-- Upload Area -->
+            <div class="upload-area" id="uploadArea">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-primary); margin-bottom: 12px;">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                <p style="font-size: 16px; font-weight: 500; margin-top: 8px;">点此上传你的美照</p>
+                <p style="font-size: 13px; color: var(--color-text-secondary); margin-top: 4px;">支持拖拽哦，绝不上传云端，完全保护你的隐私 🔒</p>
+                <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            </div>
+
+            <!-- Workspace (Hidden initially) -->
+            <div class="workspace" id="workspace">
+                
+                <!-- Settings Panel -->
+                <div class="controls">
+                    <!-- Size Selection -->
+                    <div class="controls-group">
+                        <h3>选择尺寸</h3>
+                        <div class="segment-control" id="sizeSelector">
+                            <button class="segment-btn active" data-width="295" data-height="413" data-name="一寸">一寸</button>
+                            <button class="segment-btn" data-width="413" data-height="626" data-name="二寸">二寸</button>
+                            <button class="segment-btn" data-width="custom" data-name="自定义">自定义</button>
+                        </div>
+                        
+                        <!-- Custom Size Inputs (Hidden by default) -->
+                        <div id="customSizePanel" style="display: none; gap: var(--sp-2); margin-top: var(--sp-3); align-items: center;">
+                            <input type="number" id="customWidth" placeholder="宽 (毫米)" class="custom-input" min="10" max="200" value="35">
+                            <span style="color: var(--color-text-secondary);">×</span>
+                            <input type="number" id="customHeight" placeholder="高 (毫米)" class="custom-input" min="10" max="200" value="45">
+                            <button class="btn-primary" id="applyCustomSizeBtn" style="padding: var(--sp-2) var(--sp-4); width: auto; font-size: 14px;">应用</button>
+                        </div>
+                    </div>
+
+                    <!-- Background Removal -->
+                    <div class="controls-group">
+                        <h3>智能抠图 (保护隐私，纯本地处理)</h3>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="removeBgToggle" class="toggle-input">
+                            <div class="toggle-bg"><div class="toggle-knob"></div></div>
+                            <span style="font-size: 14px; font-weight: 500;">去除原背景 (超准智能抠图 🪄)</span>
+                        </label>
+                        
+                        <div class="color-options" id="colorOptions">
+                            <div class="color-btn active" data-color="transparent" style="background: repeating-conic-gradient(#ccc 0% 25%, white 0% 50%) 50% / 10px 10px;" title="无底色"></div>
+                            <div class="color-btn" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid var(--color-border);" title="白底"></div>
+                            <div class="color-btn" data-color="#FF0000" style="background: #FF0000;" title="红底"></div>
+                            <div class="color-btn" data-color="#438EDB" style="background: #438EDB;" title="蓝底"></div>
+                        </div>
+                    </div>
+
+                    <!-- Beautify -->
+                    <div class="controls-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="beautifyToggle" class="toggle-input" checked>
+                            <div class="toggle-bg"><div class="toggle-knob"></div></div>
+                            <span style="font-size: 14px; font-weight: 500;">一键仙女肌 (透亮水光微调 ✨)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Editor Area -->
+                <div class="editor-container" id="editorContainer">
+                    <img id="imageToCrop" src="" alt="待裁剪图片" style="max-width: 100%; display: block;">
+                    <div class="size-helper" id="sizeHelper">裁剪框：一寸比例</div>
+                    
+                    <!-- Loader -->
+                    <div class="loader-overlay" id="loader">
+                        <div class="loader-spinner"></div>
+                        <p id="loaderText" style="font-weight: 500; text-align: center; padding: 0 20px;">正在加载 AI 模型抠图<br>首次使用需下载模型，请稍等...</p>
+                    </div>
+                </div>
+
+                <!-- Action -->
+                <div style="display: flex; gap: var(--sp-3); margin-top: var(--sp-2);">
+                    <button class="btn-secondary" id="reselectBtn">重选美图</button>
+                    <button class="btn-primary" id="exportBtn" style="flex: 2;">保存绝美证件照</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Download Options Action Sheet -->
+    <div id="downloadSheetOverlay" class="action-sheet-overlay" style="display: none;">
+        <div class="action-sheet">
+            <div class="sheet-header">
+                <h3>保存照片</h3>
+                <button id="closeSheetBtn" class="close-btn">×</button>
+            </div>
+            <div class="sheet-body">
+                <button id="saveToAlbumBtn" class="sheet-btn primary-sheet-btn">
+                    <span style="font-size: 20px;">🖼️</span>
+                    <div class="sheet-btn-text">
+                        <strong>保存到手机相册</strong>
+                        <span>更方便发朋友圈或找打印店哦</span>
+                    </div>
+                </button>
+                <button id="downloadToFileBtn" class="sheet-btn">
+                    <span style="font-size: 20px;">📁</span>
+                    <div class="sheet-btn-text">
+                        <strong>下载到本地文件</strong>
+                        <span>原画质保存到系统“下载/文件”夹</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Preview Overlay for Long-Press Saving (PWA Fallback) -->
+    <div id="resultPreviewOverlay" class="action-sheet-overlay" style="display: none; z-index: 2000; flex-direction: column; justify-content: center; align-items: center;">
+        <div style="background: var(--color-bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: var(--sp-6) var(--sp-4); border-radius: var(--radius-lg); width: 90%; max-width: 340px; text-align: center; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.15);">
+            <button id="closeResultBtn" class="close-btn" style="position: absolute; top: 12px; right: 12px; font-size: 24px; color: var(--color-text-secondary);">&times;</button>
+            <h3 style="margin-bottom: var(--sp-2); color: var(--color-primary); font-size: 20px;">✨ 生成成功</h3>
+            <p style="font-size: 14px; color: var(--color-text-primary); margin-bottom: var(--sp-4); line-height: 1.5;">
+                由于系统轻应用安全限制，<br>请<strong style="color: var(--color-primary);">长按下方图片</strong>并选择<strong>「存储图像」</strong><br>即可极速保存到手机相册 📸
+            </p>
+            <div style="border-radius: var(--radius-sm); overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.1); display: inline-block; margin-bottom: var(--sp-4); position: relative;">
+                <img id="finalResultImg" src="" alt="最终证件照" style="max-width: 100%; max-height: 50vh; display: block; border-radius: var(--radius-sm); -webkit-touch-callout: default;">
+                <div style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: white; font-size: 11px; padding: 4px 10px; border-radius: 100px; white-space: nowrap; pointer-events: none;">👇 必须长按这里保存哦</div>
+            </div>
+            <div>
+                <a href="#" id="forceDownloadLink" style="font-size: 13px; color: var(--color-text-secondary); text-decoration: underline;">备用：直接下载到系统文件</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => {
+                    console.log('SW registration failed: ', err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>

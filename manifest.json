@@ -1,0 +1,17 @@
+{
+  "name": "YY小工具",
+  "short_name": "YY小工具",
+  "description": "纯本地处理的证件照制作应用",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F5F5F7",
+  "theme_color": "#F5F5F7",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

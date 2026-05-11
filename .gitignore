@@ -1,0 +1,4 @@
+.DS_Store
+.ai/
+node_modules/
+.env
