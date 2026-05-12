@@ -29,7 +29,6 @@ const beautifyToggle = document.getElementById('beautifyToggle');
 const toast = document.getElementById('toast');
 const installGuide = document.getElementById('installGuide');
 const closeInstallGuide = document.getElementById('closeInstallGuide');
-// Deleted Action Sheet DOM elements
 
 let toastTimeout = null;
 let pendingDataUrl = '';
@@ -302,7 +301,6 @@ exportBtn.addEventListener('click', () => {
     }
 });
 
-// Deleted Action Sheet Handlers
 
 // Reselect Image
 if (reselectBtn) {
@@ -442,71 +440,28 @@ function updateCropperImage(src) {
     });
 }
 
-let selfieSegmentation = null;
-let currentSegmentationResolve = null;
-let isEngineBusy = false;
-const engineQueue = [];
+let aiWorker = null;
 
-function getSelfieSegmentation() {
-    if (!selfieSegmentation) {
-        selfieSegmentation = new SelfieSegmentation({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
-        });
-        selfieSegmentation.setOptions({
-            modelSelection: 1, // 1 means landscape model (better for half-body, preserves arms/clothes better than 0)
-        });
-        selfieSegmentation.onResults((results) => {
-            if (currentSegmentationResolve) {
-                currentSegmentationResolve(results);
-            }
-        });
+function getAIWorker() {
+    if (!aiWorker) {
+        // 加入 v=23 强行打破 Service Worker 对 worker.js 的死板缓存
+        aiWorker = new Worker('worker.js?v=23', { type: 'module' });
     }
-    return selfieSegmentation;
+    return aiWorker;
 }
-
-function processNextInQueue() {
-    if (isEngineBusy || engineQueue.length === 0) return;
-    isEngineBusy = true;
-    
-    const { engine, imageSource, resolve, reject } = engineQueue.shift();
-    
-    currentSegmentationResolve = (results) => {
-        isEngineBusy = false;
-        resolve(results);
-        processNextInQueue();
-    };
-    
-    engine.send({ image: imageSource }).catch((err) => {
-        console.warn('Engine process failed:', err);
-        isEngineBusy = false;
-        if (reject) reject(err);
-        processNextInQueue();
-    });
-}
-
-function enqueueEngineProcess(engine, imageSource) {
-    return new Promise((resolve, reject) => {
-        engineQueue.push({ engine, imageSource, resolve, reject });
-        processNextInQueue();
-    });
-}
-
 
 async function performBackgroundRemoval() {
     loader.style.display = 'flex';
-    document.getElementById('loaderText').innerHTML = '正在加载轻量级 AI 引擎 (约1MB)...<br>仅限首次需要下载';
+    document.getElementById('loaderText').innerHTML = '正在初始化超清 AI 引擎...';
     
     try {
-        const engine = getSelfieSegmentation();
-        
+        const worker = getAIWorker();
         const img = new Image();
         
         const resultDataUrl = await new Promise((resolve, reject) => {
             img.onload = async () => {
                 try {
-                    // 苹果 WebGL 闪退终极防御：绝不能把超过 1000px 的原图直接塞给 AI 引擎！
-                    // 我们先创建一个最大 800px 的微缩版 canvas 专门喂给 AI 算蒙版
-                    const MAX_ENGINE_DIMENSION = 800;
+                    const MAX_ENGINE_DIMENSION = 1024;
                     let sw = img.width;
                     let sh = img.height;
                     if (sw > MAX_ENGINE_DIMENSION || sh > MAX_ENGINE_DIMENSION) {
@@ -520,29 +475,40 @@ async function performBackgroundRemoval() {
                     const sCtx = smallCanvas.getContext('2d');
                     sCtx.drawImage(img, 0, 0, sw, sh);
 
-                    // 把微缩版扔给引擎，这样 WebGL 显存极小，绝不闪退
-                    const results = await enqueueEngineProcess(engine, smallCanvas);
+                    const blobUrl = await new Promise(res => smallCanvas.toBlob(b => res(URL.createObjectURL(b)), 'image/jpeg', 0.95));
                     
-                    // 拿到低清蒙版后，我们把它放大并盖在我们的高清原图上
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    // 定义 Worker 消息处理
+                    const messageHandler = (e) => {
+                        const data = e.data;
+                        if (data.status === 'progress') {
+                            if (data.info && data.info.status === 'progress') {
+                                const percent = Math.round(data.info.progress);
+                                document.getElementById('loaderText').innerHTML = `首次需下载超清大模型 (约12MB)<br>进度: ${percent}% (请勿息屏)`;
+                            } else if (data.info && data.info.status === 'downloading') {
+                                document.getElementById('loaderText').innerHTML = `正在下载模型: ${data.info.file}`;
+                            }
+                        } else if (data.status === 'ready') {
+                            document.getElementById('loaderText').innerHTML = '模型加载完毕，正在准备抠图...';
+                            worker.postMessage({ action: 'segment', blobUrl });
+                        } else if (data.status === 'processing') {
+                            document.getElementById('loaderText').innerHTML = '引擎轰鸣中，正在进行超清发丝抠图...';
+                        } else if (data.status === 'done') {
+                            worker.removeEventListener('message', messageHandler);
+                            URL.revokeObjectURL(blobUrl);
+                            
+                            // 直接使用 Worker 中已经合并好透明通道的 PNG Blob URL
+                            resolve(data.maskUrl);
+                        } else if (data.status === 'error') {
+                            worker.removeEventListener('message', messageHandler);
+                            URL.revokeObjectURL(blobUrl);
+                            reject(new Error(data.error));
+                        }
+                    };
                     
-                    if (results && results.segmentationMask) {
-                        // drawImage 会自动把低清的 segmentationMask 平滑拉伸到高分辨率的 canvas 上
-                        ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
-                        
-                        // 直接使用 AI 返回的原始高质量蒙版，不强行做边缘裁剪，保留头发和身体细节
-
-                    }
+                    worker.addEventListener('message', messageHandler);
+                    // 启动 Worker 加载模型
+                    worker.postMessage({ action: 'load' });
                     
-                    ctx.globalCompositeOperation = 'source-in';
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-                    resolve(canvas.toDataURL('image/png'));
                 } catch (e) {
                     reject(e);
                 }
