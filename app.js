@@ -444,8 +444,8 @@ let aiWorker = null;
 
 function getAIWorker() {
     if (!aiWorker) {
-        // 加入 v=23 强行打破 Service Worker 对 worker.js 的死板缓存
-        aiWorker = new Worker('worker.js?v=23', { type: 'module' });
+        // 加入 v=24 强行打破 Service Worker 对 worker.js 的死板缓存
+        aiWorker = new Worker('worker.js?v=24', { type: 'module' });
     }
     return aiWorker;
 }

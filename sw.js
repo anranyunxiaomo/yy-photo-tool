@@ -1,17 +1,20 @@
-const CACHE_NAME = 'sky-photo-v23';
+const CACHE_NAME = 'sky-photo-v24';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './app.css',
     './app.js',
-    './worker.js?v=23',
+    './worker.js?v=24',
     './icon.png',
     './manifest.json',
     'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css',
     'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js',
     './engine_v16/transformers.min.js',
     './engine_v16/ort-wasm-simd-threaded.jsep.wasm',
-    './engine_v16/ort-wasm-simd-threaded.jsep.mjs'
+    './engine_v16/ort-wasm-simd-threaded.jsep.mjs',
+    './models/Xenova/modnet/config.json',
+    './models/Xenova/modnet/preprocessor_config.json',
+    './models/Xenova/modnet/onnx/model_quantized.onnx'
 ];
 
 self.addEventListener('install', (event) => {

@@ -16,7 +16,7 @@ self.addEventListener('message', async (event) => {
 
     if (action === 'load') {
         try {
-            if (!model) {
+            if (!model || !processor) {
                 // 加载专门针对人像抠图的 ModNet 模型
                 model = await AutoModel.from_pretrained('Xenova/modnet', {
                     quantized: true,
