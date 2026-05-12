@@ -29,10 +29,7 @@ const beautifyToggle = document.getElementById('beautifyToggle');
 const toast = document.getElementById('toast');
 const installGuide = document.getElementById('installGuide');
 const closeInstallGuide = document.getElementById('closeInstallGuide');
-const downloadSheetOverlay = document.getElementById('downloadSheetOverlay');
-const saveToAlbumBtn = document.getElementById('saveToAlbumBtn');
-const downloadToFileBtn = document.getElementById('downloadToFileBtn');
-const closeSheetBtn = document.getElementById('closeSheetBtn');
+// Deleted Action Sheet DOM elements
 
 let toastTimeout = null;
 let pendingDataUrl = '';
@@ -258,50 +255,30 @@ exportBtn.addEventListener('click', () => {
     pendingFilename = `证件照_${currentRatioName}_高清.${exportExt}`;
     
     // Check if the device supports Web Share API for files
+    const file = dataURLtoFile(pendingDataUrl, pendingFilename);
     let canShareFiles = false;
-    if (navigator.canShare) {
-        try {
-            const testFile = new File([''], 'test.jpg', { type: 'image/jpeg' });
-            canShareFiles = navigator.canShare({ files: [testFile] });
-        } catch (e) {
-            canShareFiles = false;
-        }
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        canShareFiles = true;
     }
 
     if (canShareFiles) {
-        // Device supports sharing, show options sheet
-        if (downloadSheetOverlay) {
-            downloadSheetOverlay.style.display = 'block';
-        }
+        // 直接一键调起系统的原生分享面板（内含“存储图像”按钮）
+        navigator.share({
+            files: [file],
+            title: 'YY小工具',
+        }).catch((err) => {
+            console.log('用户取消了保存或系统拦截: ', err);
+        });
     } else {
         // PWA Mode / PC Mode fallback: Show the image directly on screen for long-press saving to Album!
         const resultOverlay = document.getElementById('resultPreviewOverlay');
         const finalImg = document.getElementById('finalResultImg');
         const forceDownloadLink = document.getElementById('forceDownloadLink');
         const closeResultBtn = document.getElementById('closeResultBtn');
-        const directClickSaveBtn = document.getElementById('directClickSaveBtn');
         
         if (resultOverlay && finalImg) {
             finalImg.src = pendingDataUrl;
             resultOverlay.style.display = 'flex';
-            
-            // Direct click to save
-            if (directClickSaveBtn) {
-                directClickSaveBtn.onclick = () => {
-                    const link = document.createElement('a');
-                    link.download = pendingFilename;
-                    link.href = pendingDataUrl;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    showToast('✨ 绝美证件照已保存！');
-                    
-                    // Delay close
-                    setTimeout(() => {
-                        resultOverlay.style.display = 'none';
-                    }, 800);
-                };
-            }
             
             // Backup download handler
             if (forceDownloadLink) {
@@ -325,48 +302,7 @@ exportBtn.addEventListener('click', () => {
     }
 });
 
-// Action Sheet Handlers
-if (closeSheetBtn) {
-    closeSheetBtn.addEventListener('click', () => {
-        downloadSheetOverlay.style.display = 'none';
-    });
-}
-
-if (saveToAlbumBtn) {
-    saveToAlbumBtn.addEventListener('click', async () => {
-        downloadSheetOverlay.style.display = 'none';
-        const file = dataURLtoFile(pendingDataUrl, pendingFilename);
-        
-        // Check if the device supports Web Share API for files
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                showToast('准备就绪！✨\n👉 弹窗后请点击【保存图像】即可存入手机相册');
-                await navigator.share({
-                    files: [file],
-                    title: 'YY小工具',
-                });
-            } catch (err) {
-                console.log('User canceled share or failed: ', err);
-            }
-        } else {
-            showToast('抱歉宝宝，当前浏览器不支持直接存入相册 🥺\n请重新点击选择【下载到本地文件】哦～');
-        }
-    });
-}
-
-if (downloadToFileBtn) {
-    downloadToFileBtn.addEventListener('click', () => {
-        downloadSheetOverlay.style.display = 'none';
-        const link = document.createElement('a');
-        link.download = pendingFilename;
-        link.href = pendingDataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        showToast('✨ 绝美高清照下载成功！\n已保存至您的系统【下载/文件夹】中，快去看看吧～');
-    });
-}
+// Deleted Action Sheet Handlers
 
 // Reselect Image
 if (reselectBtn) {
@@ -501,6 +437,7 @@ function processNextInQueue() {
     };
     
     engine.send({ image: imageSource }).catch((err) => {
+        console.warn('Engine process failed:', err);
         isEngineBusy = false;
         if (reject) reject(err);
         processNextInQueue();
@@ -535,7 +472,6 @@ async function checkPortraitPresence(src) {
     
     return new Promise((resolve) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
         img.onload = async () => {
             // Resize to a small canvas for fast software pixel analysis to prevent Out-Of-Memory crashes (闪退)
             const smallCanvas = getResizedCanvas(img, 256);
@@ -559,9 +495,10 @@ async function checkPortraitPresence(src) {
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 let opaquePixels = 0;
                 for (let i = 0; i < imgData.data.length; i += 4) {
-                    // Universally check both Red and Alpha channels. 
-                    // Some browsers render mask to RGB, some render to Alpha.
-                    if (imgData.data[i] > 128 || imgData.data[i + 3] > 128) {
+                    // MediaPipe returns a black background (0,0,0,255) for areas without a portrait.
+                    // We must ONLY check the color channels (e.g., Red > 128). 
+                    // If we check Alpha, black backgrounds will be falsely counted as a portrait!
+                    if (imgData.data[i] > 128) {
                         opaquePixels++;
                     }
                 }
@@ -591,7 +528,6 @@ async function performBackgroundRemoval() {
         const engine = getSelfieSegmentation();
         
         const img = new Image();
-        img.crossOrigin = 'anonymous';
         
         const resultDataUrl = await new Promise((resolve, reject) => {
             img.onload = async () => {
