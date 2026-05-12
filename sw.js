@@ -1,20 +1,17 @@
-const CACHE_NAME = 'sky-photo-v24';
+const CACHE_NAME = 'sky-photo-v25-mediapipe';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './app.css',
     './app.js',
-    './worker.js?v=24',
     './icon.png',
     './manifest.json',
     'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css',
     'https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js',
-    './engine_v16/transformers.min.js',
-    './engine_v16/ort-wasm-simd-threaded.jsep.wasm',
-    './engine_v16/ort-wasm-simd-threaded.jsep.mjs',
-    './models/Xenova/modnet/config.json',
-    './models/Xenova/modnet/preprocessor_config.json',
-    './models/Xenova/modnet/onnx/model_quantized.onnx'
+    'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js',
+    'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation_solution_simd_wasm_bin.js',
+    'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation_solution_simd_wasm_bin.wasm',
+    'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.binarypb'
 ];
 
 self.addEventListener('install', (event) => {

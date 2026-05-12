@@ -440,75 +440,49 @@ function updateCropperImage(src) {
     });
 }
 
-let aiWorker = null;
+let selfieSegmentation = null;
 
-function getAIWorker() {
-    if (!aiWorker) {
-        // 加入 v=24 强行打破 Service Worker 对 worker.js 的死板缓存
-        aiWorker = new Worker('worker.js?v=24', { type: 'module' });
+function getSelfieSegmentation() {
+    if (!selfieSegmentation) {
+        selfieSegmentation = new SelfieSegmentation({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`;
+        }});
+        selfieSegmentation.setOptions({
+            modelSelection: 0,
+        });
     }
-    return aiWorker;
+    return selfieSegmentation;
 }
 
 async function performBackgroundRemoval() {
     loader.style.display = 'flex';
-    document.getElementById('loaderText').innerHTML = '正在初始化超清 AI 引擎...';
+    document.getElementById('loaderText').innerHTML = '正在加载轻量级 AI 引擎...<br>(首次需下载约2MB模型)';
     
     try {
-        const worker = getAIWorker();
+        const segmenter = getSelfieSegmentation();
         const img = new Image();
         
         const resultDataUrl = await new Promise((resolve, reject) => {
             img.onload = async () => {
                 try {
-                    const MAX_ENGINE_DIMENSION = 1024;
-                    let sw = img.width;
-                    let sh = img.height;
-                    if (sw > MAX_ENGINE_DIMENSION || sh > MAX_ENGINE_DIMENSION) {
-                        const sRatio = Math.min(MAX_ENGINE_DIMENSION / sw, MAX_ENGINE_DIMENSION / sh);
-                        sw = Math.round(sw * sRatio);
-                        sh = Math.round(sh * sRatio);
-                    }
-                    const smallCanvas = document.createElement('canvas');
-                    smallCanvas.width = sw;
-                    smallCanvas.height = sh;
-                    const sCtx = smallCanvas.getContext('2d');
-                    sCtx.drawImage(img, 0, 0, sw, sh);
-
-                    const blobUrl = await new Promise(res => smallCanvas.toBlob(b => res(URL.createObjectURL(b)), 'image/jpeg', 0.95));
+                    document.getElementById('loaderText').innerHTML = '引擎轰鸣中，正在极速抠图...';
                     
-                    // 定义 Worker 消息处理
-                    const messageHandler = (e) => {
-                        const data = e.data;
-                        if (data.status === 'progress') {
-                            if (data.info && data.info.status === 'progress') {
-                                const percent = Math.round(data.info.progress);
-                                document.getElementById('loaderText').innerHTML = `首次需下载超清大模型 (约12MB)<br>进度: ${percent}% (请勿息屏)`;
-                            } else if (data.info && data.info.status === 'downloading') {
-                                document.getElementById('loaderText').innerHTML = `正在下载模型: ${data.info.file}`;
-                            }
-                        } else if (data.status === 'ready') {
-                            document.getElementById('loaderText').innerHTML = '模型加载完毕，正在准备抠图...';
-                            worker.postMessage({ action: 'segment', blobUrl });
-                        } else if (data.status === 'processing') {
-                            document.getElementById('loaderText').innerHTML = '引擎轰鸣中，正在进行超清发丝抠图...';
-                        } else if (data.status === 'done') {
-                            worker.removeEventListener('message', messageHandler);
-                            URL.revokeObjectURL(blobUrl);
-                            
-                            // 直接使用 Worker 中已经合并好透明通道的 PNG Blob URL
-                            resolve(data.maskUrl);
-                        } else if (data.status === 'error') {
-                            worker.removeEventListener('message', messageHandler);
-                            URL.revokeObjectURL(blobUrl);
-                            reject(new Error(data.error));
-                        }
-                    };
+                    segmenter.onResults((results) => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // 先画遮罩
+                        ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+                        // 再在遮罩范围内画原图
+                        ctx.globalCompositeOperation = 'source-in';
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        resolve(canvas.toDataURL('image/png'));
+                    });
                     
-                    worker.addEventListener('message', messageHandler);
-                    // 启动 Worker 加载模型
-                    worker.postMessage({ action: 'load' });
-                    
+                    await segmenter.send({image: img});
                 } catch (e) {
                     reject(e);
                 }
