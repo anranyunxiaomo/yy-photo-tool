@@ -326,32 +326,71 @@ function handleFile(file) {
         return;
     }
 
-    try {
-        // 使用 URL.createObjectURL 替代 FileReader 以极大地降低内存占用，防止 iOS 闪退
-        if (originalImageSrc && originalImageSrc.startsWith('blob:')) {
-            URL.revokeObjectURL(originalImageSrc); // 释放上一个旧照片的内存
+    loader.style.display = 'flex';
+    document.getElementById('loaderText').innerHTML = '正在安全读取照片...';
+
+    const tempUrl = URL.createObjectURL(file);
+    const img = new Image();
+    
+    img.onload = () => {
+        try {
+            // 苹果 iOS 极其变态的 Canvas 内存限制：若传入千万像素原图给 Cropper 会必定导致 Safari 闪退。
+            // 证件照最高(600DPI)仅需 827x1181，故我们将原图安全缩放至最高 2500 像素，既保证无损画质，又彻底杜绝 OOM。
+            const MAX_DIMENSION = 2500;
+            let w = img.width;
+            let h = img.height;
+            
+            if (w > MAX_DIMENSION || h > MAX_DIMENSION) {
+                const ratio = Math.min(MAX_DIMENSION / w, MAX_DIMENSION / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            
+            canvas.toBlob((blob) => {
+                URL.revokeObjectURL(tempUrl); // 释放原始临时大图内存
+                
+                if (originalImageSrc && originalImageSrc.startsWith('blob:')) {
+                    URL.revokeObjectURL(originalImageSrc);
+                }
+                
+                originalImageSrc = URL.createObjectURL(blob);
+                originalFileType = file.type;
+                processedImageSrc = ''; 
+                removeBgToggle.checked = false; 
+                colorOptions.classList.remove('active');
+                currentBgColor = 'transparent';
+                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector('[data-color="transparent"]').classList.add('active');
+                
+                uploadArea.style.display = 'none';
+                workspace.style.display = 'flex';
+                workspace.classList.remove('animate-fade-in');
+                void workspace.offsetWidth;
+                workspace.classList.add('animate-fade-in');
+                
+                updateCropperImage(originalImageSrc);
+                loader.style.display = 'none';
+            }, file.type || 'image/jpeg', 0.95);
+            
+        } catch (err) {
+            console.error('Safe resize error:', err);
+            loader.style.display = 'none';
+            alert('照片过大，您的设备内存不足以处理。');
         }
-        
-        originalImageSrc = URL.createObjectURL(file);
-        originalFileType = file.type;
-        processedImageSrc = ''; // Reset processed state
-        removeBgToggle.checked = false; // Reset toggle
-        colorOptions.classList.remove('active');
-        currentBgColor = 'transparent';
-        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector('[data-color="transparent"]').classList.add('active');
-        
-        uploadArea.style.display = 'none';
-        workspace.style.display = 'flex';
-        workspace.classList.remove('animate-fade-in');
-        void workspace.offsetWidth;
-        workspace.classList.add('animate-fade-in');
-        
-        updateCropperImage(originalImageSrc);
-    } catch (err) {
-        console.error('File handle error:', err);
-        alert('加载图片失败，内存可能不足');
-    }
+    };
+    
+    img.onerror = () => {
+        loader.style.display = 'none';
+        alert('无法读取该图片文件，请重试');
+    };
+    
+    img.src = tempUrl;
 }
 
 function updateCropperImage(src) {
