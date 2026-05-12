@@ -344,11 +344,6 @@ function handleFile(file) {
         workspace.classList.add('animate-fade-in');
         
         updateCropperImage(originalImageSrc);
-        
-        // Asynchronously check if there is a portrait (deferred to let UI render first)
-        setTimeout(() => {
-            checkPortraitPresence(originalImageSrc);
-        }, 100);
     };
     reader.readAsDataURL(file);
 }
@@ -451,74 +446,6 @@ function enqueueEngineProcess(engine, imageSource) {
     });
 }
 
-function getResizedCanvas(img, maxSize) {
-    const canvas = document.createElement('canvas');
-    let w = img.width;
-    let h = img.height;
-    if (w > maxSize || h > maxSize) {
-        const ratio = Math.min(maxSize / w, maxSize / h);
-        w = Math.round(w * ratio);
-        h = Math.round(h * ratio);
-    }
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, w, h);
-    return canvas;
-}
-
-async function checkPortraitPresence(src) {
-    const engine = getSelfieSegmentation();
-    
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = async () => {
-            // Resize to a small canvas for fast software pixel analysis to prevent Out-Of-Memory crashes (闪退)
-            const smallCanvas = getResizedCanvas(img, 256);
-            try {
-                const results = await enqueueEngineProcess(engine, smallCanvas);
-                
-                if (!results || !results.segmentationMask) {
-                    // No mask means no portrait detected by the AI
-                    showToast('宝宝，这张照片里好像没有检测到人像哦 🥺\n不换照片也是可以继续截图的哦～');
-                    resolve();
-                    return;
-                }
-                
-                const canvas = document.createElement('canvas');
-                // Safely use results.image.width instead of mask.width just in case it's a webgl texture without exposed dimensions
-                canvas.width = results.image ? results.image.width : smallCanvas.width;
-                canvas.height = results.image ? results.image.height : smallCanvas.height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
-                
-                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                let opaquePixels = 0;
-                for (let i = 0; i < imgData.data.length; i += 4) {
-                    // MediaPipe returns a black background (0,0,0,255) for areas without a portrait.
-                    // We must ONLY check the color channels (e.g., Red > 128). 
-                    // If we check Alpha, black backgrounds will be falsely counted as a portrait!
-                    if (imgData.data[i] > 128) {
-                        opaquePixels++;
-                    }
-                }
-                
-                const ratio = opaquePixels / (canvas.width * canvas.height);
-                if (ratio < 0.02) {
-                    showToast('宝宝，这张照片里好像没有检测到人像哦 🥺\n不换照片也是可以继续截图的哦～');
-                }
-                resolve();
-            } catch (err) {
-                console.error('人像检测遇到异常:', err);
-                // If it fails processing entirely, we assume no portrait could be extracted safely.
-                showToast('宝宝，这张照片里好像没有检测到人像哦 🥺\n不换照片也是可以继续截图的哦～');
-                resolve();
-            }
-        };
-        img.onerror = () => resolve();
-        img.src = src;
-    });
-}
 
 async function performBackgroundRemoval() {
     loader.style.display = 'flex';
