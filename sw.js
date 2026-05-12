@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sky-photo-v25-mediapipe';
+const CACHE_NAME = 'sky-photo-v26-mediapipe';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
