@@ -504,15 +504,35 @@ async function performBackgroundRemoval() {
         const resultDataUrl = await new Promise((resolve, reject) => {
             img.onload = async () => {
                 try {
-                    const results = await enqueueEngineProcess(engine, img);
+                    // 苹果 WebGL 闪退终极防御：绝不能把超过 1000px 的原图直接塞给 AI 引擎！
+                    // 我们先创建一个最大 800px 的微缩版 canvas 专门喂给 AI 算蒙版
+                    const MAX_ENGINE_DIMENSION = 800;
+                    let sw = img.width;
+                    let sh = img.height;
+                    if (sw > MAX_ENGINE_DIMENSION || sh > MAX_ENGINE_DIMENSION) {
+                        const sRatio = Math.min(MAX_ENGINE_DIMENSION / sw, MAX_ENGINE_DIMENSION / sh);
+                        sw = Math.round(sw * sRatio);
+                        sh = Math.round(sh * sRatio);
+                    }
+                    const smallCanvas = document.createElement('canvas');
+                    smallCanvas.width = sw;
+                    smallCanvas.height = sh;
+                    const sCtx = smallCanvas.getContext('2d');
+                    sCtx.drawImage(img, 0, 0, sw, sh);
+
+                    // 把微缩版扔给引擎，这样 WebGL 显存极小，绝不闪退
+                    const results = await enqueueEngineProcess(engine, smallCanvas);
+                    
+                    // 拿到低清蒙版后，我们把它放大并盖在我们的高清原图上
                     const canvas = document.createElement('canvas');
-                    canvas.width = results.image ? results.image.width : img.width;
-                    canvas.height = results.image ? results.image.height : img.height;
+                    canvas.width = img.width;
+                    canvas.height = img.height;
                     const ctx = canvas.getContext('2d');
 
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
                     if (results && results.segmentationMask) {
+                        // drawImage 会自动把低清的 segmentationMask 平滑拉伸到高分辨率的 canvas 上
                         ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
                         
                         // 直接使用 AI 返回的原始高质量蒙版，不强行做边缘裁剪，保留头发和身体细节
@@ -520,7 +540,7 @@ async function performBackgroundRemoval() {
                     }
                     
                     ctx.globalCompositeOperation = 'source-in';
-                    ctx.drawImage(results.image || img, 0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
                     resolve(canvas.toDataURL('image/png'));
                 } catch (e) {
