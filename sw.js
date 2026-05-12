@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sky-photo-v3';
+const CACHE_NAME = 'sky-photo-v4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -13,7 +13,7 @@ const ASSETS_TO_CACHE = [
     'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation_solution_simd_wasm_bin.wasm',
     'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation_solution_wasm_bin.js',
     'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation_solution_wasm_bin.wasm',
-    'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.tflite'
+    'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation_landscape.tflite'
 ];
 
 self.addEventListener('install', (event) => {

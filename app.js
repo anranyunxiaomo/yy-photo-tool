@@ -414,7 +414,7 @@ function getSelfieSegmentation() {
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
         });
         selfieSegmentation.setOptions({
-            modelSelection: 0,
+            modelSelection: 1, // 1 means landscape model (better for half-body, preserves arms/clothes better than 0)
         });
         selfieSegmentation.onResults((results) => {
             if (currentSegmentationResolve) {
