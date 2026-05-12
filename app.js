@@ -502,8 +502,8 @@ async function checkPortraitPresence(src) {
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 let opaquePixels = 0;
                 for (let i = 0; i < imgData.data.length; i += 4) {
-                    // Check red channel and alpha channel (some browsers/models format masks differently)
-                    if (imgData.data[i] > 128 || imgData.data[i + 3] > 128) {
+                    // Check RGB channels (ignore Alpha because some browsers return solid black background with Alpha=255)
+                    if (imgData.data[i] > 128 || imgData.data[i + 1] > 128 || imgData.data[i + 2] > 128) {
                         opaquePixels++;
                     }
                 }
