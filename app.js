@@ -1,3 +1,18 @@
+// Welcome Screen Logic
+window.addEventListener('DOMContentLoaded', () => {
+    const welcomeScreen = document.getElementById('welcomeScreen');
+    if (welcomeScreen) {
+        if (!localStorage.getItem('jingyan_welcomed')) {
+            setTimeout(() => {
+                welcomeScreen.classList.add('fade-out');
+                localStorage.setItem('jingyan_welcomed', 'true');
+            }, 2500);
+        } else {
+            welcomeScreen.style.display = 'none';
+        }
+    }
+});
+
 // State
 let cropper = null;
 let originalImageSrc = '';
@@ -8,6 +23,7 @@ let currentBgColor = 'transparent';
 let isBgRemoved = false;
 let originalFileType = 'image/jpeg';
 let currentRatioName = '一寸';
+
 
 // DOM Elements
 const uploadArea = document.getElementById('uploadArea');
