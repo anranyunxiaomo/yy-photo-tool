@@ -326,9 +326,13 @@ function handleFile(file) {
         return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        originalImageSrc = e.target.result;
+    try {
+        // 使用 URL.createObjectURL 替代 FileReader 以极大地降低内存占用，防止 iOS 闪退
+        if (originalImageSrc && originalImageSrc.startsWith('blob:')) {
+            URL.revokeObjectURL(originalImageSrc); // 释放上一个旧照片的内存
+        }
+        
+        originalImageSrc = URL.createObjectURL(file);
         originalFileType = file.type;
         processedImageSrc = ''; // Reset processed state
         removeBgToggle.checked = false; // Reset toggle
@@ -344,8 +348,10 @@ function handleFile(file) {
         workspace.classList.add('animate-fade-in');
         
         updateCropperImage(originalImageSrc);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+        console.error('File handle error:', err);
+        alert('加载图片失败，内存可能不足');
+    }
 }
 
 function updateCropperImage(src) {
