@@ -470,18 +470,8 @@ async function performBackgroundRemoval() {
                     if (results && results.segmentationMask) {
                         ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
                         
-                        // Edge Defringing (Alpha Erosion) to remove background color halo
-                        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        for (let i = 0; i < imgData.data.length; i += 4) {
-                            const a = imgData.data[i + 3];
-                            // Shrink the mask edge inward by treating semi-transparent pixels as background
-                            if (a < 160) {
-                                imgData.data[i + 3] = 0;
-                            } else {
-                                imgData.data[i + 3] = Math.min(255, (a - 160) * 2.68);
-                            }
-                        }
-                        ctx.putImageData(imgData, 0, 0);
+                        // 直接使用 AI 返回的原始高质量蒙版，不强行做边缘裁剪，保留头发和身体细节
+
                     }
                     
                     ctx.globalCompositeOperation = 'source-in';
