@@ -6,6 +6,7 @@ let currentWidth = 295;
 let currentHeight = 413;
 let currentBgColor = 'transparent';
 let isBgRemoved = false;
+let originalFileType = 'image/jpeg';
 let currentRatioName = '一寸';
 
 // DOM Elements
@@ -158,8 +159,10 @@ removeBgToggle.addEventListener('change', async (e) => {
         
         // Reset crop box background
         const cropperContainer = document.querySelector('.cropper-container');
+        const viewBox = document.querySelector('.cropper-view-box');
         if (cropperContainer) {
             cropperContainer.style.background = 'none';
+            if (viewBox) viewBox.style.background = 'none';
         }
     }
 });
@@ -174,11 +177,15 @@ colorOptions.addEventListener('click', (e) => {
         
         // Apply background to cropper preview wrapper
         const cropperContainer = document.querySelector('.cropper-container');
+        const viewBox = document.querySelector('.cropper-view-box');
         if (cropperContainer) {
             if (currentBgColor === 'transparent') {
-                cropperContainer.style.background = 'repeating-conic-gradient(#ccc 0% 25%, white 0% 50%) 50% / 10px 10px';
+                const bg = 'repeating-conic-gradient(#ccc 0% 25%, white 0% 50%) 50% / 10px 10px';
+                cropperContainer.style.background = bg;
+                if (viewBox) viewBox.style.background = bg;
             } else {
                 cropperContainer.style.background = currentBgColor;
+                if (viewBox) viewBox.style.background = currentBgColor;
             }
         }
     }
@@ -188,11 +195,23 @@ colorOptions.addEventListener('click', (e) => {
 exportBtn.addEventListener('click', () => {
     if (!cropper) return;
     
-    // Get cropped canvas at its natural, maximum resolution to prevent any quality loss
-    const croppedCanvas = cropper.getCroppedCanvas({
+    let cropOptions = {
         imageSmoothingEnabled: true,
         imageSmoothingQuality: 'high',
-    });
+    };
+
+    // 为标准证件照（一寸/二寸）注入最低印刷级（约 600 DPI）分辨率保障
+    // 这样即使用户在小图里抠出很小的脸，也能强制超采样输出高清图，避免发虚
+    if (currentRatioName === '一寸比例') {
+        cropOptions.minWidth = 590;  // 295 * 2
+        cropOptions.minHeight = 826; // 413 * 2
+    } else if (currentRatioName === '二寸比例') {
+        cropOptions.minWidth = 826;  // 413 * 2
+        cropOptions.minHeight = 1252; // 626 * 2
+    }
+
+    // Get cropped canvas at its natural, maximum resolution (or upscaled to minWidth/Height)
+    const croppedCanvas = cropper.getCroppedCanvas(cropOptions);
 
     const finalCanvas = document.createElement('canvas');
     // Use the natural high-res cropped dimensions
@@ -221,13 +240,22 @@ exportBtn.addEventListener('click', () => {
     ctx.filter = 'none';
     
     // Determine export format (use 1.0 maximum quality for jpeg)
-    if (isBgRemoved && currentBgColor !== 'transparent') {
-        pendingDataUrl = finalCanvas.toDataURL('image/jpeg', 1.0);
-        pendingFilename = `证件照_${currentRatioName}_高清.jpg`;
-    } else {
-        pendingDataUrl = finalCanvas.toDataURL('image/png');
-        pendingFilename = `证件照_${currentRatioName}_高清.png`;
+    let exportMimeType = 'image/jpeg';
+    let exportExt = 'jpg';
+    
+    // 如果启用了抠图并且底色是透明的，必须用 PNG 格式保留透明度
+    if (isBgRemoved && currentBgColor === 'transparent') {
+        exportMimeType = 'image/png';
+        exportExt = 'png';
+    } 
+    // 如果没有启用抠图，且原图就是 PNG，则保持 PNG 格式
+    else if (!isBgRemoved && originalFileType === 'image/png') {
+        exportMimeType = 'image/png';
+        exportExt = 'png';
     }
+    
+    pendingDataUrl = finalCanvas.toDataURL(exportMimeType, 1.0);
+    pendingFilename = `证件照_${currentRatioName}_高清.${exportExt}`;
     
     // Check if the device supports Web Share API for files
     let canShareFiles = false;
@@ -251,22 +279,43 @@ exportBtn.addEventListener('click', () => {
         const finalImg = document.getElementById('finalResultImg');
         const forceDownloadLink = document.getElementById('forceDownloadLink');
         const closeResultBtn = document.getElementById('closeResultBtn');
+        const directClickSaveBtn = document.getElementById('directClickSaveBtn');
         
         if (resultOverlay && finalImg) {
             finalImg.src = pendingDataUrl;
             resultOverlay.style.display = 'flex';
             
+            // Direct click to save
+            if (directClickSaveBtn) {
+                directClickSaveBtn.onclick = () => {
+                    const link = document.createElement('a');
+                    link.download = pendingFilename;
+                    link.href = pendingDataUrl;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('✨ 绝美证件照已保存！');
+                    
+                    // Delay close
+                    setTimeout(() => {
+                        resultOverlay.style.display = 'none';
+                    }, 800);
+                };
+            }
+            
             // Backup download handler
-            forceDownloadLink.onclick = (e) => {
-                e.preventDefault();
-                const link = document.createElement('a');
-                link.download = pendingFilename;
-                link.href = pendingDataUrl;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showToast('✨ 已为您下载到系统【文件】夹！');
-            };
+            if (forceDownloadLink) {
+                forceDownloadLink.onclick = (e) => {
+                    e.preventDefault();
+                    const link = document.createElement('a');
+                    link.download = pendingFilename;
+                    link.href = pendingDataUrl;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('✨ 已为您下载到系统【文件】夹！');
+                };
+            }
             
             // Close modal handler
             closeResultBtn.onclick = () => {
@@ -344,6 +393,7 @@ function handleFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
         originalImageSrc = e.target.result;
+        originalFileType = file.type;
         processedImageSrc = ''; // Reset processed state
         removeBgToggle.checked = false; // Reset toggle
         colorOptions.classList.remove('active');
@@ -359,8 +409,10 @@ function handleFile(file) {
         
         updateCropperImage(originalImageSrc);
         
-        // Asynchronously check if there is a portrait
-        checkPortraitPresence(originalImageSrc);
+        // Asynchronously check if there is a portrait (deferred to let UI render first)
+        setTimeout(() => {
+            checkPortraitPresence(originalImageSrc);
+        }, 100);
     };
     reader.readAsDataURL(file);
 }
@@ -396,13 +448,18 @@ function updateCropperImage(src) {
             
             // Reapply background color or transparent pattern if bg is removed
             const cropperContainer = document.querySelector('.cropper-container');
+            const viewBox = document.querySelector('.cropper-view-box');
             if (cropperContainer) {
                 if (isBgRemoved && currentBgColor !== 'transparent') {
                     cropperContainer.style.background = currentBgColor;
+                    if (viewBox) viewBox.style.background = currentBgColor;
                 } else if (isBgRemoved && currentBgColor === 'transparent') {
-                    cropperContainer.style.background = 'repeating-conic-gradient(#ccc 0% 25%, white 0% 50%) 50% / 10px 10px';
+                    const bg = 'repeating-conic-gradient(#ccc 0% 25%, white 0% 50%) 50% / 10px 10px';
+                    cropperContainer.style.background = bg;
+                    if (viewBox) viewBox.style.background = bg;
                 } else {
                     cropperContainer.style.background = 'none';
+                    if (viewBox) viewBox.style.background = 'none';
                 }
             }
         }
@@ -481,7 +538,7 @@ async function checkPortraitPresence(src) {
         img.crossOrigin = 'anonymous';
         img.onload = async () => {
             // Resize to a small canvas for fast software pixel analysis to prevent Out-Of-Memory crashes (闪退)
-            const smallCanvas = getResizedCanvas(img, 512);
+            const smallCanvas = getResizedCanvas(img, 256);
             try {
                 const results = await enqueueEngineProcess(engine, smallCanvas);
                 
@@ -502,8 +559,9 @@ async function checkPortraitPresence(src) {
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 let opaquePixels = 0;
                 for (let i = 0; i < imgData.data.length; i += 4) {
-                    // Check RGB channels (ignore Alpha because some browsers return solid black background with Alpha=255)
-                    if (imgData.data[i] > 128 || imgData.data[i + 1] > 128 || imgData.data[i + 2] > 128) {
+                    // Universally check both Red and Alpha channels. 
+                    // Some browsers render mask to RGB, some render to Alpha.
+                    if (imgData.data[i] > 128 || imgData.data[i + 3] > 128) {
                         opaquePixels++;
                     }
                 }
@@ -548,6 +606,19 @@ async function performBackgroundRemoval() {
                     
                     if (results && results.segmentationMask) {
                         ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+                        
+                        // Edge Defringing (Alpha Erosion) to remove background color halo
+                        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        for (let i = 0; i < imgData.data.length; i += 4) {
+                            const a = imgData.data[i + 3];
+                            // Shrink the mask edge inward by treating semi-transparent pixels as background
+                            if (a < 160) {
+                                imgData.data[i + 3] = 0;
+                            } else {
+                                imgData.data[i + 3] = Math.min(255, (a - 160) * 2.68);
+                            }
+                        }
+                        ctx.putImageData(imgData, 0, 0);
                     }
                     
                     ctx.globalCompositeOperation = 'source-in';

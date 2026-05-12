@@ -82,9 +82,10 @@
                         
                         <div class="color-options" id="colorOptions">
                             <div class="color-btn active" data-color="transparent" style="background: repeating-conic-gradient(#ccc 0% 25%, white 0% 50%) 50% / 10px 10px;" title="无底色"></div>
-                            <div class="color-btn" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid var(--color-border);" title="白底"></div>
-                            <div class="color-btn" data-color="#FF0000" style="background: #FF0000;" title="红底"></div>
-                            <div class="color-btn" data-color="#438EDB" style="background: #438EDB;" title="蓝底"></div>
+                            <div class="color-btn" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid var(--color-border);" title="白底 (标准)"></div>
+                            <div class="color-btn" data-color="#438EDB" style="background: #438EDB;" title="蓝底 (标准)"></div>
+                            <div class="color-btn" data-color="#D9001B" style="background: #D9001B;" title="红底 (标准)"></div>
+                            <div class="color-btn" data-color="#E0E0E0" style="background: #E0E0E0;" title="灰底 (标准)"></div>
                         </div>
                     </div>
 
@@ -152,16 +153,18 @@
     <div id="resultPreviewOverlay" class="action-sheet-overlay" style="display: none; z-index: 2000; flex-direction: column; justify-content: center; align-items: center;">
         <div style="background: var(--color-bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: var(--sp-6) var(--sp-4); border-radius: var(--radius-lg); width: 90%; max-width: 340px; text-align: center; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.15);">
             <button id="closeResultBtn" class="close-btn" style="position: absolute; top: 12px; right: 12px; font-size: 24px; color: var(--color-text-secondary);">&times;</button>
-            <h3 style="margin-bottom: var(--sp-2); color: var(--color-primary); font-size: 20px;">✨ 生成成功</h3>
+            <h3 style="margin-bottom: var(--sp-2); color: var(--color-primary); font-size: 20px;">✨ 证件照已生成</h3>
             <p style="font-size: 14px; color: var(--color-text-primary); margin-bottom: var(--sp-4); line-height: 1.5;">
-                由于系统轻应用安全限制，<br>请<strong style="color: var(--color-primary);">长按下方图片</strong>并选择<strong>「存储图像」</strong><br>即可极速保存到手机相册 📸
+                您的绝美证件照已准备就绪<br>请点击下方按钮直接保存 📸
             </p>
             <div style="border-radius: var(--radius-sm); overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.1); display: inline-block; margin-bottom: var(--sp-4); position: relative;">
-                <img id="finalResultImg" src="" alt="最终证件照" style="max-width: 100%; max-height: 50vh; display: block; border-radius: var(--radius-sm); -webkit-touch-callout: default;">
-                <div style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: white; font-size: 11px; padding: 4px 10px; border-radius: 100px; white-space: nowrap; pointer-events: none;">👇 必须长按这里保存哦</div>
+                <img id="finalResultImg" src="" alt="最终证件照" style="max-width: 100%; max-height: 45vh; display: block; border-radius: var(--radius-sm);">
             </div>
-            <div>
-                <a href="#" id="forceDownloadLink" style="font-size: 13px; color: var(--color-text-secondary); text-decoration: underline;">备用：直接下载到系统文件</a>
+            <div style="display: flex; gap: 12px; justify-content: center; width: 100%;">
+                <button id="directClickSaveBtn" class="btn-primary" style="flex: 1; padding: 14px 0; font-size: 16px; border-radius: 100px;">🚀 一键保存到相册</button>
+            </div>
+            <div style="margin-top: 12px;">
+                <a href="#" id="forceDownloadLink" style="font-size: 13px; color: var(--color-text-secondary); text-decoration: underline;">保存失败？尝试直接下载文件</a>
             </div>
         </div>
     </div>
